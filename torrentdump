@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+#
+# torrentdump - Simple utility that prints the contents of a torrent.
+#
+# Copyright (C) 2011 Paul Legato. All rights reserved.
+# Licensed for personal, non-commercial use only.
+# This code comes with NO WARRANTY, express or implied.
+#
+# Prerequisite gem setup:
+#   sudo gem install bencode awesome_print
+#
+
+require 'rubygems'
+require 'bencode'
+require 'awesome_print'
+
+unless ARGV[0]
+  STDERR.puts <<END
+
+Usage: torrentdump <filename> <-v>
+
+If -v is given, prints the entire contents of the torrent except the binary "pieces" hash data.
+
+If -vv is given, prints everything, including the binary hash data.
+
+Otherwise, prints only the file list.
+
+END
+  exit 1
+end
+
+# Method from http://stackoverflow.com/questions/3201890/is-there-an-elegant-way-to-remove-a-specific-key-from-a-hash-and-its-sub-hashes
+def recursive_delete!(hash, to_remove)
+  hash.delete(to_remove)
+  hash.each_value do |value|
+    recursive_delete!(value, to_remove) if value.is_a? Hash
+  end
+end
+
+data = BEncode.load(File.read(ARGV[0]).force_encoding("binary"))
+
+if ARGV[1] == "-vv"
+  ap data
+elsif ARGV[1] == "-v"
+  recursive_delete!(data, "pieces")
+  ap data
+else
+  if data["info"]["files"]
+    dir = data["info"]["name"] || ""
+    ap data["info"]["files"].map {|x| dir + "/" + x["path"].join("/") }  
+  else
+    ap data["info"]["name"]
+  end
+end
